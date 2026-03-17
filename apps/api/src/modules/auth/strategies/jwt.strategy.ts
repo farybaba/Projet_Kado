@@ -15,7 +15,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       algorithms: ['HS256'],
-      secretOrKey: config.get<string>('JWT_SECRET') ?? '',
+      secretOrKey: config.get<string>('JWT_SECRET') || 'kado_fallback_secret_2026',
       passReqToCallback: true,
     });
   }
