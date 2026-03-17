@@ -8,11 +8,6 @@ export class PrismaService
 {
   constructor() {
     super({
-      datasources: {
-        db: {
-          url: process.env.DATABASE_URL,
-        },
-      },
       log:
         process.env.APP_ENV === 'development'
           ? ['query', 'info', 'warn', 'error']
