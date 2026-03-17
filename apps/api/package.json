@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
-    "start": "node dist/main",
+    "start": "node -e \"const fs=require('fs');const env=Object.entries(process.env).map(([k,v])=>`${k}=${v}`).join('\\n');fs.writeFileSync('.env',env);\" && node dist/main",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run --coverage",
