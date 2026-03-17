@@ -1,8 +1,7 @@
 [phases.build]
 cmds = [
   "npm ci",
-  "DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder npx prisma generate",
-  "npm run build --workspace=@kado/api"
+  "export DATABASE_URL=postgresql://postgres:placeholder@localhost:5432/kado && npx prisma generate && npm run build --workspace=@kado/api"
 ]
 
 [start]
