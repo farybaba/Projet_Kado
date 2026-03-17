@@ -1,8 +1,9 @@
 [phases.build]
 cmds = [
-  "npm install",
-  "cd apps/api && npx prisma generate --schema=prisma/schema.prisma && npx nest build"
+  "npm ci",
+  "npx prisma generate",
+  "npm run build --workspace=@kado/api"
 ]
 
 [start]
-cmd = "cd apps/api && node dist/main"
+cmd = "npm run start --workspace=@kado/api"
