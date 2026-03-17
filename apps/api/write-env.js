@@ -1,6 +1,12 @@
 const fs = require('fs');
+const path = require('path');
+console.log('CWD:', process.cwd());
 const lines = Object.entries(process.env)
-  .map(([k, v]) => `${k}=${v}`)
+  .filter(([k]) => !k.includes('(') && !k.includes(')') && !k.includes(' '))
+  .map(([k, v]) => `${k}=${v.replace(/\n/g, '\\n')}`)
   .join('\n');
 fs.writeFileSync('.env', lines);
-console.log('Written .env with', Object.keys(process.env).length, 'variables');
+fs.writeFileSync('/app/.env', lines);
+fs.writeFileSync('/app/apps/api/.env', lines);
+console.log('Written .env to:', process.cwd());
+console.log('DATABASE_URL present:', lines.includes('DATABASE_URL'));
