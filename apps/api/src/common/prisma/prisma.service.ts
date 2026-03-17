@@ -6,7 +6,7 @@ export class PrismaService
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy
 {
-  constructor() {
+  constructor(private config: ConfigService) {
     super({
       log:
         process.env.APP_ENV === 'development'
