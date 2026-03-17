@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(cd:*)",
+      "Bash(timeout:*)",
+      "Bash(nest build:*)",
+      "Bash(npx nest:*)",
+      "Bash(grep:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npx tsc:*)",
+      "Bash(psql:*)",
+      "Bash(node:*)",
+      "Bash(find:*)",
+      "Bash(wc:*)"
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "Kado",
+  "short_name": "Kado",
+  "description": "Le cadeau, digitalisé.",
+  "theme_color": "#534AB7",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "orientation": "portrait",
+  "start_url": "/app/wallet",
+  "scope": "/",
+  "lang": "fr-SN",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["finance", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Mon portefeuille",
+      "url": "/app/wallet",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Scanner un bon",
+      "url": "/pos/scan",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
