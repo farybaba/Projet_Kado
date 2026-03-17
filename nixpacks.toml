@@ -1,9 +1,0 @@
-[phases.build]
-cmds = [
-  "npm ci",
-  "DATABASE_URL=postgresql://postgres:mRuNtnlAdnIuUDOAVEZhzeMlRWTXZxCn@yamabiko.proxy.rlwy.net:33949/railway npx prisma generate",
-  "npm run build --workspace=@kado/api"
-]
-
-[start]
-cmd = "printenv | grep -E 'DATABASE_URL|REDIS_URL|JWT|HMAC|APP_ENV|PORT|COMMISSION' > /app/.env && printenv | grep -E 'DATABASE_URL|REDIS_URL|JWT|HMAC|APP_ENV|PORT|COMMISSION' > /app/apps/api/.env && npm run start --workspace=@kado/api"
