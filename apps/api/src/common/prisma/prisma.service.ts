@@ -16,6 +16,8 @@ export class PrismaService
   }
 
   async onModuleInit() {
+    // Ensure env vars are loaded
+    await new Promise(resolve => setTimeout(resolve, 100));
     await this.$connect();
   }
 
