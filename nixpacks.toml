@@ -6,4 +6,4 @@ cmds = [
 ]
 
 [start]
-cmd = "echo DATABASE_URL=$DATABASE_URL > /app/apps/api/.env && npm run start --workspace=@kado/api"
+cmd = "printenv | grep -E 'DATABASE_URL|REDIS_URL|JWT|HMAC|APP_ENV|PORT|COMMISSION' > /app/.env && printenv | grep -E 'DATABASE_URL|REDIS_URL|JWT|HMAC|APP_ENV|PORT|COMMISSION' > /app/apps/api/.env && npm run start --workspace=@kado/api"
