@@ -1,8 +1,9 @@
 [phases.build]
 cmds = [
   "npm ci",
-  "DATABASE_URL=postgresql://postgres:mRuNtnlAdnIuUDOAVEZhzeMlRWTXZxCn@yamabiko.proxy.rlwy.net:33949/railway npx prisma generate && npm run build --workspace=@kado/api"
+  "DATABASE_URL=postgresql://postgres:mRuNtnlAdnIuUDOAVEZhzeMlRWTXZxCn@yamabiko.proxy.rlwy.net:33949/railway npx prisma generate",
+  "npm run build --workspace=@kado/api"
 ]
 
 [start]
-cmd = "npm run start --workspace=@kado/api"
+cmd = "echo DATABASE_URL=$DATABASE_URL > /app/apps/api/.env && npm run start --workspace=@kado/api"
