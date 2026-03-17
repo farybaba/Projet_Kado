@@ -1,0 +1,5 @@
+[phases.build]
+cmds = ["npm install", "cd apps/api && npx nest build"]
+
+[phases.start]
+cmd = "cd apps/api && node dist/main"
