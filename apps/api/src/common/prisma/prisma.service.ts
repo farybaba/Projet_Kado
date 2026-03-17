@@ -7,7 +7,9 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   constructor() {
+    const dbUrl = process.env.DATABASE_URL;
     super({
+      datasources: dbUrl ? { db: { url: dbUrl } } : undefined,
       log:
         process.env.APP_ENV === 'development'
           ? ['query', 'info', 'warn', 'error']
@@ -16,8 +18,6 @@ export class PrismaService
   }
 
   async onModuleInit() {
-    // Ensure env vars are loaded
-    await new Promise(resolve => setTimeout(resolve, 100));
     await this.$connect();
   }
 
