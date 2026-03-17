@@ -1,6 +1,3 @@
-// Ensure DATABASE_URL is available
-if (!process.env.DATABASE_URL) { console.error('DATABASE_URL is not set!'); process.exit(1); }
-
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
