@@ -16,8 +16,8 @@ import { RedisModule } from '../../common/redis/redis.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        privateKey: config.get<string>('JWT_PRIVATE_KEY')?.replace(/\\n/g, '\n'),
-        publicKey: config.get<string>('JWT_PUBLIC_KEY')?.replace(/\\n/g, '\n'),
+        privateKey: (() => { const k = config.get<string>('JWT_PRIVATE_KEY') ?? ''; return k.startsWith('-----') ? k : Buffer.from(k, 'base64').toString('utf8'); })(),
+        publicKey: (() => { const k = config.get<string>('JWT_PUBLIC_KEY') ?? ''; return k.startsWith('-----') ? k : Buffer.from(k, 'base64').toString('utf8'); })(),
         signOptions: {
           algorithm: 'RS256',
           expiresIn: config.get<string>('JWT_ACCESS_EXPIRES_IN', '15m'),
