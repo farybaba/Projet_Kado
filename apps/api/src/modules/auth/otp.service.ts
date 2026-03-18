@@ -11,6 +11,12 @@ const OTP_BLOCK_SECONDS = 30 * 60;      // blocage 30 min après 3 échecs
 export class OtpService {
   private readonly isDev = process.env.APP_ENV === 'development';
 
+  
+  private async safeRedis<T>(fn: () => Promise<T>, fallback: T, timeout = 2000): Promise<T> {
+    try {
+      return await Promise.race([fn(), new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Redis timeout')), timeout))]);
+    } catch { return fallback; }
+  }
   constructor(private readonly redis: RedisService) {}
 
   async send(phone: string): Promise<void> {
@@ -18,7 +24,7 @@ export class OtpService {
       const blockedKey = `otp_blocked:${phone}`;
       const triesKey = `otp_tries:${phone}`;
 
-      const isBlocked = await this.redis.get(blockedKey);
+      const isBlocked = await this.safeRedis(() => this.redis.get(blockedKey), null);
       if (isBlocked) {
         throw new HttpException(
           'Trop de tentatives. Réessayez dans 30 minutes.',
@@ -26,7 +32,7 @@ export class OtpService {
         );
       }
 
-      const tries = parseInt((await this.redis.get(triesKey)) ?? '0', 10);
+      const tries = parseInt((await this.safeRedis(() => this.redis.get(triesKey), null)) ?? '0', 10);
       if (tries >= OTP_RATE_LIMIT) {
         throw new HttpException(
           'Trop de codes envoyés. Réessayez dans 1 heure.',
@@ -51,7 +57,7 @@ export class OtpService {
   async verify(phone: string, code: string): Promise<boolean> {
     const otpKey = `otp:${phone}`;
 
-    const stored = await this.redis.get(otpKey);
+    const stored = await this.safeRedis(() => this.redis.get(otpKey), null);
     if (!stored) {
       return false;
     }
@@ -72,7 +78,7 @@ export class OtpService {
         }
         if (fails >= OTP_RATE_LIMIT) {
           await this.redis.setex(blockedKey, OTP_BLOCK_SECONDS, '1');
-          await this.redis.del(otpKey);
+          await this.safeRedis(() => this.redis.del(otpKey), 0);
           throw new HttpException(
             'Compte temporairement bloqué (30 min).',
             HttpStatus.TOO_MANY_REQUESTS,
