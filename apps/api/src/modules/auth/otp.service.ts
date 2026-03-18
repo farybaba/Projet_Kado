@@ -78,7 +78,7 @@ export class OtpService {
         }
         if (fails >= OTP_RATE_LIMIT) {
           await this.redis.setex(blockedKey, OTP_BLOCK_SECONDS, '1');
-          await this.safeRedis(() => this.redis.del(otpKey), 0);
+          await this.safeRedis(() => this.redis.del(otpKey), undefined as void);
           throw new HttpException(
             'Compte temporairement bloqué (30 min).',
             HttpStatus.TOO_MANY_REQUESTS,
