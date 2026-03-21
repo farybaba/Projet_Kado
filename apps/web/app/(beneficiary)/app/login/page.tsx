@@ -172,8 +172,15 @@ export default function LoginPage() {
           return;
         }
 
+        console.log('[OTP verify] data reçu:', JSON.stringify(data));
+        if (!data.accessToken) {
+          setOtpError('Réponse invalide du serveur. Réessayez.');
+          console.error('[OTP verify] accessToken manquant dans:', data);
+          return;
+        }
         localStorage.setItem('access_token', data.accessToken);
         localStorage.setItem('refresh_token', data.refreshToken);
+        console.log('[OTP verify] tokens sauvegardés, redirection wallet...');
 
         router.replace('/app/wallet');
       } catch (err) {
