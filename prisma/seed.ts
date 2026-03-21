@@ -5,13 +5,13 @@ const prisma = new PrismaClient();
 
 const NOMINAL_VALUE = 2_500_000; // 25 000 FCFA en centimes
 
-function buildQrData(code: string, companyId: string, secret: string): string {
+function buildQrData(voucherId: string, code: string, companyId: string, secret: string): string {
   const ts = Date.now();
-  // innerPayload = chaîne signée — DOIT correspondre exactement à ce que verifyQrSignature recompute
-  const innerPayload = JSON.stringify({ code, companyId, ts });
+  // innerPayload = chaîne signée — DOIT correspondre exactement à generateQrData du service
+  const innerPayload = JSON.stringify({ voucherId, code, companyId, ts });
   const sig = crypto.createHmac('sha256', secret).update(innerPayload).digest('hex');
   // qrData stocké en DB et affiché dans le QR — contient toutes les données + sig
-  return JSON.stringify({ code, companyId, ts, sig });
+  return JSON.stringify({ voucherId, code, companyId, ts, sig });
 }
 
 async function main() {
@@ -113,7 +113,7 @@ async function main() {
 
   if (existingVoucher) {
     // Regénère le qrData avec le bon secret (format corrigé)
-    const qrData = buildQrData(existingVoucher.code, company.id, hmacSecret);
+    const qrData = buildQrData(existingVoucher.id, existingVoucher.code, company.id, hmacSecret);
     await prisma.voucher.update({
       where: { id: existingVoucher.id },
       data: { qrData },
@@ -121,10 +121,12 @@ async function main() {
     console.log(`  Bon          : qrData régénéré (${existingVoucher.id})`);
   } else {
     const code = crypto.randomUUID();
-    const qrData = buildQrData(code, company.id, hmacSecret);
+    const voucherId = crypto.randomUUID();
+    const qrData = buildQrData(voucherId, code, company.id, hmacSecret);
 
     const voucher = await prisma.voucher.create({
       data: {
+        id: voucherId,
         code,
         qrData,
         nominalValue: NOMINAL_VALUE,

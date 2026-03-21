@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { OtpService } from './otp.service';
 import { RedisModule } from '../../common/redis/redis.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { RedisModule } from '../../common/redis/redis.module';
       },
     }),
     RedisModule,
+    NotificationsModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, OtpService, JwtStrategy],

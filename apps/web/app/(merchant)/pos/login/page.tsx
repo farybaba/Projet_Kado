@@ -16,11 +16,22 @@ function decodeJwtPayload(token: string): Record<string, unknown> {
   }
 }
 
-type Step = 'phone' | 'otp';
+const CGU_KEY = 'merchant_cgu_accepted';
+
+const CGU_TEXT = `CONDITIONS GÉNÉRALES D'UTILISATION — Commerçant Kado
+
+1. En utilisant le terminal Kado POS, vous acceptez de traiter uniquement des bons valides émis par Kado.
+2. Il est interdit de rendre la monnaie sur un bon Kado. Le montant est déduit du solde disponible.
+3. Le reversement est effectué sous 24h sur votre compte Wave/Orange Money enregistré.
+4. Toute fraude entraîne la suspension immédiate du compte et des poursuites judiciaires.
+5. Kado se réserve le droit de bloquer tout compte suspect automatiquement.`;
+
+type Step = 'phone' | 'otp' | 'cgu';
 
 export default function PosLoginPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>('phone');
+  const [cguChecked, setCguChecked] = useState(false);
   const [phone, setPhone] = useState('');
   const [phoneError, setPhoneError] = useState('');
   const [sending, setSending] = useState(false);
@@ -107,13 +118,23 @@ export default function PosLoginPage() {
       localStorage.setItem('merchant_refresh_token', data.refreshToken ?? '');
       localStorage.setItem('merchant_id', (payload.merchantId as string) ?? '');
 
-      router.replace('/pos/scan');
+      // CGU déjà acceptées ? On saute l'étape
+      if (localStorage.getItem(CGU_KEY) === 'true') {
+        router.replace('/pos/scan');
+      } else {
+        setStep('cgu');
+      }
     } catch {
       setOtpError('Erreur réseau.');
     } finally {
       setVerifying(false);
     }
   }, [phone, router]);
+
+  const handleCguConfirm = useCallback(() => {
+    localStorage.setItem(CGU_KEY, 'true');
+    router.replace('/pos/scan');
+  }, [router]);
 
   const handleOtpChange = (i: number, value: string) => {
     const digit = value.replace(/\D/g, '').slice(-1);
@@ -151,7 +172,35 @@ export default function PosLoginPage() {
           <span style={s.logoSub}>Terminal commerçant</span>
         </div>
 
-        {step === 'phone' ? (
+        {step === 'cgu' ? (
+          <div style={s.form}>
+            <h1 style={s.title}>Conditions d'utilisation</h1>
+            <p style={s.subtitle}>Veuillez lire et accepter les CGU avant de continuer.</p>
+
+            <div style={s.cguBox}>
+              <pre style={s.cguText}>{CGU_TEXT}</pre>
+            </div>
+
+            <label style={s.cguLabel}>
+              <input
+                type="checkbox"
+                checked={cguChecked}
+                onChange={(e) => setCguChecked(e.target.checked)}
+                style={s.cguCheckbox}
+              />
+              J'ai lu et j'accepte les CGU Kado
+            </label>
+
+            <button
+              type="button"
+              disabled={!cguChecked}
+              onClick={handleCguConfirm}
+              style={{ ...s.btn, opacity: cguChecked ? 1 : 0.5 }}
+            >
+              Confirmer
+            </button>
+          </div>
+        ) : step === 'phone' ? (
           <form
             onSubmit={(e) => { e.preventDefault(); handleSend(); }}
             style={s.form}
@@ -313,5 +362,40 @@ const s: Record<string, React.CSSProperties> = {
     background: 'none', border: 'none',
     color: '#534AB7', fontSize: 14, fontWeight: 600,
     cursor: 'pointer', textDecoration: 'underline',
+  },
+  cguBox: {
+    maxHeight: 200,
+    overflowY: 'scroll',
+    border: '1.5px solid #E5E7EB',
+    borderRadius: 10,
+    padding: '12px 14px',
+    marginBottom: 16,
+    background: '#F9FAFB',
+  },
+  cguText: {
+    margin: 0,
+    fontSize: 12,
+    color: '#374151',
+    lineHeight: 1.6,
+    fontFamily: 'inherit',
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+  },
+  cguLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    fontSize: 14,
+    fontWeight: 500,
+    color: '#111827',
+    cursor: 'pointer',
+    marginBottom: 4,
+  },
+  cguCheckbox: {
+    width: 18,
+    height: 18,
+    accentColor: '#534AB7',
+    cursor: 'pointer',
+    flexShrink: 0,
   },
 };

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import PwaInstallBanner from '@/components/PwaInstallBanner';
 
 export const metadata: Metadata = {
   title: 'Kado — Le cadeau, digitalisé.',
@@ -26,7 +27,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body>{children}</body>
+      <body>
+        {children}
+        <PwaInstallBanner />
+      </body>
     </html>
   );
 }

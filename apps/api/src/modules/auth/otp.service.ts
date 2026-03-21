@@ -1,6 +1,7 @@
 import * as crypto from 'crypto';
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Optional } from '@nestjs/common';
 import { RedisService } from '../../common/redis/redis.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const OTP_TTL_SECONDS = 5 * 60;         // 5 minutes
 const OTP_RATE_LIMIT = 3;               // max 3 envois/heure
@@ -17,7 +18,10 @@ export class OtpService {
       return await Promise.race([fn(), new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Redis timeout')), timeout))]);
     } catch { return fallback; }
   }
-  constructor(private readonly redis: RedisService) {}
+  constructor(
+    private readonly redis: RedisService,
+    @Optional() private readonly notifications?: NotificationsService,
+  ) {}
 
   async send(phone: string): Promise<void> {
     if (!this.isDev) {
@@ -60,6 +64,13 @@ export class OtpService {
 
     // En production, envoyer via Nexah SMS. En dev : log console.
     console.log(`[OTP] ${phone} → ${code}`);
+
+    // Envoi SMS non-bloquant — fire and forget
+    if (this.notifications) {
+      this.notifications.sendOtpSms(phone, code).catch((err) => {
+        console.error('[OTP] Échec envoi SMS (non-bloquant):', err);
+      });
+    }
   }
 
   async verify(phone: string, code: string): Promise<boolean> {
