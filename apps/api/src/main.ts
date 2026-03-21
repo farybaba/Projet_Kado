@@ -6,14 +6,24 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Sécurité HTTP
-  app.use(helmet());
+  // Sécurité HTTP — crossOriginResourcePolicy désactivé pour autoriser les appels depuis Vercel
+  app.use(helmet({
+    crossOriginResourcePolicy: false,
+    crossOriginOpenerPolicy: false,
+  }));
 
   // CORS — origines autorisées depuis env
-  const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? '').split(',');
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? '').split(',').map(o => o.trim()).filter(Boolean);
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      // Autoriser les requêtes sans origin (mobile, Postman, curl)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(null, false);
+    },
     credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   // Validation globale — rejette les propriétés non déclarées dans les DTOs
