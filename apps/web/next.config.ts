@@ -7,7 +7,8 @@ const nextConfig: NextConfig = {
     serverActions: { allowedOrigins: ['localhost:3000', 'kado-gamma.vercel.app'] },
   },
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+    // API_URL = var serveur (non-publique) pour le proxy — jamais exposée au browser
+    const apiUrl = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
     return [
       {
         source: '/api/v1/:path*',
