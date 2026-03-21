@@ -264,10 +264,17 @@ export class VouchersService {
     const expectedBuf = Buffer.from(expected);
     const receivedBuf = Buffer.from(signature);
 
-    if (
-      expectedBuf.length !== receivedBuf.length ||
-      !crypto.timingSafeEqual(expectedBuf, receivedBuf)
-    ) {
+    const match = expectedBuf.length === receivedBuf.length &&
+      crypto.timingSafeEqual(expectedBuf, receivedBuf);
+
+    // DEBUG temporaire — à supprimer après diagnostic
+    console.log('[QR DEBUG] secret_prefix:', secret.slice(0, 8));
+    console.log('[QR DEBUG] innerPayload:', innerPayload.slice(0, 80));
+    console.log('[QR DEBUG] expected:', expected.slice(0, 16), '...');
+    console.log('[QR DEBUG] received:', signature.slice(0, 16), '...');
+    console.log('[QR DEBUG] match:', match);
+
+    if (!match) {
       throw new BadRequestException({ code: 'QR_INVALID', message: 'Signature QR incorrecte' });
     }
   }
