@@ -12,15 +12,9 @@ async function bootstrap() {
     crossOriginOpenerPolicy: false,
   }));
 
-  // CORS — origines autorisées depuis env
-  const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? '').split(',').map(o => o.trim()).filter(Boolean);
+  /// CORS "Portes Ouvertes" pour le test mobile Kado
   app.enableCors({
-    origin: (origin, callback) => {
-      // Autoriser les requêtes sans origin (mobile, Postman, curl)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(null, false);
-    },
+    origin: true, 
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
