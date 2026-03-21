@@ -17,8 +17,7 @@ interface QrPayload {
 }
 
 interface VoucherPreview {
-  code: string;
-  sig: string;
+  qrData: string; // contenu brut JSON du QR
   remainingValue: number;
   nominalValue: number;
   type: string;
@@ -133,7 +132,7 @@ export default function PosScanPage() {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ code: payload.code, qrSignature: payload.sig }),
+        body: JSON.stringify({ qrData: text }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -150,8 +149,7 @@ export default function PosScanPage() {
       setState({
         kind: 'preview',
         voucher: {
-          code: payload.code,
-          sig: payload.sig,
+          qrData: text,
           remainingValue: data.remainingValue,
           nominalValue: data.nominalValue,
           type: data.type,
@@ -172,8 +170,7 @@ export default function PosScanPage() {
 
     // Stocker les données pour les pages suivantes
     sessionStorage.setItem('pos_qr', JSON.stringify({
-      code: state.voucher.code,
-      sig: state.voucher.sig,
+      qrData: state.voucher.qrData,
       remainingValue: state.voucher.remainingValue,
       nominalValue: state.voucher.nominalValue,
       type: state.voucher.type,

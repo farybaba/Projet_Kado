@@ -16,8 +16,7 @@ const ERROR_LABELS: Record<string, string> = {
 };
 
 interface PosQr {
-  code: string;
-  sig: string;
+  qrData: string; // contenu brut JSON du QR
   remainingValue: number;
   beneficiaryFirstName: string | null;
   merchantId: string;
@@ -96,10 +95,9 @@ export default function PosConfirmPage() {
           Authorization: `Bearer ${localStorage.getItem('merchant_token')}`,
         },
         body: JSON.stringify({
-          code: posQr.code,
+          qrData: posQr.qrData,
           amountCentimes,
           merchantId: posQr.merchantId,
-          qrSignature: posQr.sig,
         }),
       });
 

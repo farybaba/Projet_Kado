@@ -15,15 +15,12 @@ import type { JwtPayload } from '../auth/auth.service';
 
 class LookupVoucherDto {
   @IsString()
-  code!: string;
-
-  @IsString()
-  qrSignature!: string;
+  qrData!: string; // contenu brut JSON du QR scanné
 }
 
 class ValidateVoucherDto {
   @IsString()
-  code!: string;
+  qrData!: string; // contenu brut JSON du QR scanné
 
   @IsInt()
   @Min(1)
@@ -32,9 +29,6 @@ class ValidateVoucherDto {
 
   @IsString()
   merchantId!: string;
-
-  @IsString()
-  qrSignature!: string;
 }
 
 @UseGuards(JwtAuthGuard)
@@ -60,16 +54,15 @@ export class VouchersController {
   // Lecture sans débit — appelé par le POS après scan QR pour afficher le preview
   @Post('lookup')
   async lookup(@Body() dto: LookupVoucherDto) {
-    return this.vouchersService.lookupByCode(dto.code, dto.qrSignature);
+    return this.vouchersService.lookupByCode(dto.qrData);
   }
 
   @Post('validate')
   async validate(@Body() dto: ValidateVoucherDto) {
     return this.vouchersService.validate(
-      dto.code,
+      dto.qrData,
       dto.amountCentimes,
       dto.merchantId,
-      dto.qrSignature,
     );
   }
 }

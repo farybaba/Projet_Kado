@@ -3,11 +3,13 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { LedgerService } from '../ledger/ledger.service';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 import type { Voucher, VoucherStatus } from '@prisma/client';
 
 @Injectable()
@@ -16,6 +18,7 @@ export class VouchersService {
     private readonly prisma: PrismaService,
     private readonly ledger: LedgerService,
     private readonly config: ConfigService,
+    @Optional() private readonly loyalty: LoyaltyService,
   ) {}
 
   async findByBeneficiary(userId: string, phone?: string): Promise<Voucher[]> {
@@ -73,12 +76,13 @@ export class VouchersService {
   // ─── Validation QR — transaction atomique SELECT FOR UPDATE ──────────────
 
   async validate(
-    voucherCode: string,
+    rawQrData: string,
     amountCentimes: number,
     merchantId: string,
-    qrSignature: string,
   ): Promise<{ success: boolean; remainingValue: number }> {
-    return this.prisma.$transaction(
+    // Extraire code et signature depuis le contenu brut du QR
+    const { code: voucherCode, sig: qrSignature } = this.parseQrContent(rawQrData);
+    const transactionResult = await this.prisma.$transaction(
       async (tx) => {
         // SELECT FOR UPDATE — verrouille la ligne, zéro race condition
         const rows = await tx.$queryRaw<Voucher[]>`
@@ -91,8 +95,8 @@ export class VouchersService {
 
         const voucher = rows[0];
 
-        // 1. Vérification signature HMAC-SHA256 (timingSafeEqual)
-        this.verifyQrSignature(voucher.qrData, qrSignature);
+        // 1. Vérification signature HMAC-SHA256 sur le contenu brut du QR
+        this.verifyQrSignature(rawQrData, qrSignature);
 
         // 2. Statut ISSUED ou PARTIAL
         if (voucher.status !== 'ISSUED' && voucher.status !== 'PARTIAL') {
@@ -160,15 +164,26 @@ export class VouchersService {
           },
         );
 
-        return { success: true, remainingValue: newRemaining };
+        return { success: true, remainingValue: newRemaining, beneficiaryId: voucher.beneficiaryId };
       },
       { timeout: 5_000 },
     );
+
+    // Créditer les points de fidélité hors transaction — échec non bloquant
+    if (this.loyalty && transactionResult.beneficiaryId) {
+      this.loyalty
+        .creditPoints(transactionResult.beneficiaryId, merchantId, amountCentimes)
+        .catch(() => {
+          // Echec silencieux — la validation reste valide
+        });
+    }
+
+    return { success: transactionResult.success, remainingValue: transactionResult.remainingValue };
   }
 
   // ─── Lookup sans débit — pour l'écran de preview POS ──────────────────────
   // Vérifie la signature HMAC et retourne les infos du bon sans modifier quoi que ce soit.
-  async lookupByCode(code: string, qrSignature: string): Promise<{
+  async lookupByCode(rawQrData: string): Promise<{
     code: string;
     remainingValue: number;
     nominalValue: number;
@@ -176,6 +191,10 @@ export class VouchersService {
     expiresAt: Date;
     beneficiaryFirstName: string | null;
   }> {
+    const { code, sig: qrSignature } = this.parseQrContent(rawQrData);
+    // Vérification HMAC directement sur le contenu brut du QR scanné
+    this.verifyQrSignature(rawQrData, qrSignature);
+
     const voucher = await this.prisma.voucher.findUnique({
       where: { code },
       include: { beneficiary: { select: { firstName: true } } },
@@ -184,8 +203,6 @@ export class VouchersService {
     if (!voucher) {
       throw new NotFoundException({ code: 'VOUCHER_NOT_FOUND', message: 'Bon introuvable' });
     }
-
-    this.verifyQrSignature(voucher.qrData, qrSignature);
 
     if (voucher.status !== 'ISSUED' && voucher.status !== 'PARTIAL') {
       const errorCode = voucher.status === 'USED' ? 'VOUCHER_ALREADY_USED' : 'VOUCHER_EXPIRED';
@@ -206,18 +223,36 @@ export class VouchersService {
     };
   }
 
-  private verifyQrSignature(qrData: string, signature: string): void {
+  // Parse le contenu brut du QR et retourne code + sig
+  private parseQrContent(rawQrData: string): { code: string; sig: string } {
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(rawQrData);
+    } catch {
+      throw new BadRequestException({ code: 'QR_INVALID', message: 'QR code illisible' });
+    }
+    const code = parsed['code'] as string | undefined;
+    const sig = parsed['sig'] as string | undefined;
+    if (!code || !sig) {
+      throw new BadRequestException({ code: 'QR_INVALID', message: 'QR code invalide' });
+    }
+    return { code, sig };
+  }
+
+  // Vérifie la signature HMAC du contenu brut du QR scanné
+  // rawQrData = la chaîne JSON exacte lue par le scanner — pas le champ DB
+  private verifyQrSignature(rawQrData: string, signature: string): void {
     const secret = this.config.get<string>('HMAC_VOUCHER_SECRET');
     if (!secret) throw new Error('HMAC_VOUCHER_SECRET manquant');
 
-    // qrData = JSON.stringify({...fields, sig}) — on extrait sig et on signe le reste
     let parsed: Record<string, unknown>;
     try {
-      parsed = JSON.parse(qrData);
+      parsed = JSON.parse(rawQrData);
     } catch {
       throw new BadRequestException({ code: 'QR_INVALID', message: 'Signature QR incorrecte' });
     }
 
+    // Retirer sig du payload, signer le reste
     const { sig: _stored, ...payloadFields } = parsed;
     const innerPayload = JSON.stringify(payloadFields);
 
