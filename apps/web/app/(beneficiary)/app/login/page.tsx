@@ -167,11 +167,7 @@ export default function LoginPage() {
           } else {
             setOtpError('Code incorrect ou expiré. Réessayez.');
           }
-          setOtp(['', '', '', '', '', '']);
-          setTimeout(() => {
-          router.replace('/app/wallet');
-          }, 150);
-        }
+          
 
         console.log('[OTP verify] data reçu:', JSON.stringify(data));
         if (!data.accessToken) {
@@ -179,11 +175,27 @@ export default function LoginPage() {
           console.error('[OTP verify] accessToken manquant dans:', data);
           return;
         }
+        // --- NOUVEAU BLOC BLINDÉ (TOKENS + COOKIES) ---
+
+        // 1. Stockage Local (pour le navigateur)
         localStorage.setItem('access_token', data.accessToken);
-        localStorage.setItem('token', data.accessToken); 
-        localStorage.setItem('auth_token', data.accessToken);
+        localStorage.setItem('token', data.accessToken);
         localStorage.setItem('refresh_token', data.refreshToken);
-        router.replace('/app/wallet');
+
+        // 2. Injection des Cookies (pour le Middleware/Serveur)
+        // On crée des cookies valables 7 jours sur tout le site
+        const cookieOptions = "path=/; max-age=604800; SameSite=Lax";
+        document.cookie = `token=${data.accessToken}; ${cookieOptions}`;
+        document.cookie = `access_token=${data.accessToken}; ${cookieOptions}`;
+
+        console.log('[OTP verify] Cookies et Tokens injectés. Redirection...');
+
+        // 3. Délai de sécurité pour laisser le téléphone enregistrer
+        setTimeout(() => {
+          router.replace('/app/wallet');
+        }, 300);
+
+        // --- FIN DU BLOC ---
       } catch (err) {
         console.error('[OTP verify] Erreur réseau:', err);
         setOtpError('Erreur réseau. Vérifiez votre connexion.');
