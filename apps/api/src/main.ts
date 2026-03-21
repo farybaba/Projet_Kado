@@ -12,14 +12,12 @@ async function bootstrap() {
     crossOriginOpenerPolicy: false,
   }));
 
-  /// CORS "Portes Ouvertes" pour le test mobile Kado
   app.enableCors({
-    origin: true, 
-    credentials: true,
-    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  });
-
+  origin: true, // Accepte toutes les adresses pour le test
+  credentials: true,
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+});
   // Validation globale — rejette les propriétés non déclarées dans les DTOs
   app.useGlobalPipes(
     new ValidationPipe({
