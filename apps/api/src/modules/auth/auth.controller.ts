@@ -38,8 +38,8 @@ class RefreshDto {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  // 30 req/min sur /auth/otp (surcharge la règle globale)
-  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  // 3 req/min sur /auth/otp/send (surcharge la règle globale — anti-flood SMS)
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @Post('otp/send')
   @HttpCode(HttpStatus.NO_CONTENT)
   async sendOtp(@Body() dto: SendOtpDto) {

@@ -1,10 +1,48 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { CompanyStatus, MerchantStatus } from '@prisma/client';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { CompanyStatus, MerchantStatus, SaaSPlan } from '@prisma/client';
+import * as crypto from 'crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { VouchersService } from '../vouchers/vouchers.service';
+
+export interface OnboardMerchantDto {
+  // Commerçant
+  merchantName: string;
+  merchantPhone: string;
+  category: 'GENERAL' | 'FOOD' | 'MOBILITY' | 'HEALTH' | 'RETAIL' | 'EDUCATION';
+  address?: string;
+  merchantEmail?: string;
+  wavePhone?: string;
+  omPhone?: string;
+  // Utilisateur POS
+  posFirstName: string;
+  posLastName: string;
+  posPhone: string;
+}
+
+export interface OnboardCompanyDto {
+  // Entreprise
+  companyName: string;
+  siren?: string;
+  companyEmail?: string;
+  companyPhone?: string;
+  companyAddress?: string;
+  plan: 'STANDARD' | 'PREMIUM';
+  // Responsable RH
+  hrFirstName: string;
+  hrLastName: string;
+  hrPhone: string;
+  hrEmail?: string;
+  hrPoste?: string;
+}
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+    private readonly vouchers: VouchersService,
+  ) {}
 
   async getStats() {
     const now = new Date();
@@ -348,6 +386,172 @@ export class AdminService {
     };
   }
 
+  async onboardMerchant(dto: OnboardMerchantDto) {
+    // 1. Créer le commerçant
+    const merchant = await this.prisma.merchant.create({
+      data: {
+        name: dto.merchantName,
+        phone: dto.merchantPhone,
+        category: dto.category,
+        address: dto.address || null,
+        email: dto.merchantEmail || null,
+        wavePhone: dto.wavePhone || null,
+        omPhone: dto.omPhone || null,
+        status: 'PENDING',
+      },
+    });
+
+    // 2. Créer ou rattacher l'utilisateur POS
+    const posUser = await this.prisma.user.upsert({
+      where: { phone: dto.posPhone },
+      update: { merchantId: merchant.id, firstName: dto.posFirstName, lastName: dto.posLastName, role: 'MERCHANT' },
+      create: {
+        phone: dto.posPhone,
+        firstName: dto.posFirstName,
+        lastName: dto.posLastName,
+        role: 'MERCHANT',
+        merchantId: merchant.id,
+      },
+    });
+
+    // 3. Envoyer SMS de bienvenue
+    await this.notifications.sendMerchantWelcomeSms(dto.posPhone, dto.merchantName, dto.posFirstName);
+
+    return {
+      merchantId: merchant.id,
+      merchantName: merchant.name,
+      posUserId: posUser.id,
+      posPhone: dto.posPhone,
+    };
+  }
+
+  async onboardCompany(dto: OnboardCompanyDto) {
+    // 1. Créer l'entreprise
+    const company = await this.prisma.company.create({
+      data: {
+        name: dto.companyName,
+        siren: dto.siren || null,
+        email: dto.companyEmail || null,
+        phone: dto.companyPhone || null,
+        address: dto.companyAddress || null,
+        plan: dto.plan,
+        status: 'PENDING_KYB',
+        provisionBalance: 0,
+      },
+    });
+
+    // 2. Créer l'utilisateur RH COMPANY_ADMIN (upsert — le numéro peut déjà exister)
+    await this.prisma.user.upsert({
+      where: { phone: dto.hrPhone },
+      update: {
+        role: 'COMPANY_ADMIN',
+        companyId: company.id,
+        firstName: dto.hrFirstName,
+        lastName: dto.hrLastName,
+        email: dto.hrEmail || null,
+      },
+      create: {
+        phone: dto.hrPhone,
+        firstName: dto.hrFirstName,
+        lastName: dto.hrLastName,
+        email: dto.hrEmail || null,
+        role: 'COMPANY_ADMIN',
+        companyId: company.id,
+      },
+    });
+
+    // 3. Créer l'invitation RH (token UUID, TTL 7 jours)
+    const token = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    await this.prisma.invitation.create({
+      data: {
+        token,
+        phone: dto.hrPhone,
+        email: dto.hrEmail || null,
+        firstName: dto.hrFirstName,
+        lastName: dto.hrLastName,
+        poste: dto.hrPoste || null,
+        companyId: company.id,
+        status: 'PENDING',
+        expiresAt,
+      },
+    });
+
+    // 4. Envoyer SMS d'invitation au RH
+    await this.notifications.sendInvitationSms(dto.hrPhone, token, dto.hrFirstName);
+
+    return {
+      companyId: company.id,
+      companyName: company.name,
+      hrPhone: dto.hrPhone,
+      invitationToken: token,
+      expiresAt,
+    };
+  }
+
+  // ─── Contrats & SaaS ────────────────────────────────────────────────────────
+
+  // Tarifs en centimes FCFA (INSERT ONLY dans le ledger)
+  static readonly SAAS_PRICING: Record<SaaSPlan, { monthly: number; label: string }> = {
+    STANDARD: { monthly: 1_500_000, label: 'Standard — 15 000 FCFA/mois' },
+    PREMIUM:  { monthly: 5_000_000, label: 'Premium — 50 000 FCFA/mois' },
+  };
+  static readonly DOSSIER_FEE = 1_000_000; // 10 000 FCFA (frais KYB unique)
+
+  async updateCompanyPlan(id: string, plan: SaaSPlan) {
+    const company = await this.prisma.company.findUnique({ where: { id } });
+    if (!company) throw new NotFoundException('Entreprise introuvable');
+    return this.prisma.company.update({ where: { id }, data: { plan } });
+  }
+
+  async chargeSaasFee(id: string, feeType: 'MONTHLY' | 'DOSSIER') {
+    const company = await this.prisma.company.findUnique({ where: { id } });
+    if (!company) throw new NotFoundException('Entreprise introuvable');
+
+    const amount = feeType === 'DOSSIER'
+      ? AdminService.DOSSIER_FEE
+      : AdminService.SAAS_PRICING[company.plan].monthly;
+
+    const feeLabel = feeType === 'DOSSIER'
+      ? 'Frais de dossier KYB'
+      : `Abonnement ${company.plan} mensuel`;
+
+    if (company.provisionBalance < amount) {
+      throw new ConflictException({
+        code: 'INSUFFICIENT_PROVISION',
+        message: `Provision insuffisante. Requis : ${(amount / 100).toLocaleString('fr-SN')} FCFA. Disponible : ${(company.provisionBalance / 100).toLocaleString('fr-SN')} FCFA.`,
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.company.update({
+        where: { id },
+        data: { provisionBalance: { decrement: amount } },
+      });
+
+      await tx.ledgerEntry.create({
+        data: {
+          type: 'SAAS_REVENUE',
+          debitAccount: `PROVISION_COMPANY:${id}`,
+          creditAccount: 'REVENUE_SAAS',
+          amount,
+          companyId: id,
+          reference: crypto.randomUUID(),
+          metadata: { feeType, feeLabel, plan: company.plan },
+        },
+      });
+
+      const updated = await tx.company.findUnique({ where: { id } });
+      return {
+        success: true,
+        feeLabel,
+        amountCentimes: amount,
+        newProvisionBalance: updated!.provisionBalance,
+      };
+    });
+  }
+
   async retryWebhook(id: string) {
     return this.prisma.webhookLog.update({
       where: { id },
@@ -381,5 +585,43 @@ export class AdminService {
       beneficiaryMasked: tx.voucher.beneficiaryPhone.slice(0, 7) + '***',
       createdAt: tx.createdAt,
     }));
+  }
+
+  // ─── Régénération QR codes ──────────────────────────────────────────────────
+
+  async regenerateAllQrCodes(): Promise<{ updated: number; errors: number }> {
+    const BATCH_SIZE = 50;
+    let updated = 0;
+    let errors = 0;
+    let skip = 0;
+
+    while (true) {
+      const batch = await this.prisma.voucher.findMany({
+        where: { status: { in: ['PENDING', 'ISSUED', 'PARTIAL'] } },
+        select: { id: true, code: true, companyId: true },
+        take: BATCH_SIZE,
+        skip,
+        orderBy: { createdAt: 'asc' },
+      });
+
+      if (batch.length === 0) break;
+
+      for (const voucher of batch) {
+        try {
+          const { qrData } = this.vouchers.generateQrData(voucher.id, voucher.code, voucher.companyId);
+          await this.prisma.voucher.update({
+            where: { id: voucher.id },
+            data: { qrData },
+          });
+          updated++;
+        } catch {
+          errors++;
+        }
+      }
+
+      skip += BATCH_SIZE;
+    }
+
+    return { updated, errors };
   }
 }

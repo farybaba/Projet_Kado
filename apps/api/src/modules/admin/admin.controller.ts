@@ -12,9 +12,9 @@ import {
   HttpCode,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { AdminService } from './admin.service';
+import { AdminService, OnboardCompanyDto, OnboardMerchantDto } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CompanyStatus, MerchantStatus } from '@prisma/client';
+import { CompanyStatus, MerchantStatus, SaaSPlan } from '@prisma/client';
 
 interface JwtUser {
   sub: string;
@@ -85,6 +85,60 @@ export class AdminController {
     return this.adminService.updateMerchantStatus(id, status);
   }
 
+  // ─── Onboarding entreprise ─────────────────────────────────────────────────
+
+  @Post('onboard-merchant')
+  @HttpCode(201)
+  onboardMerchant(
+    @Req() req: { user: JwtUser },
+    @Body() dto: OnboardMerchantDto,
+  ) {
+    this.assertAdmin(req);
+    return this.adminService.onboardMerchant(dto);
+  }
+
+  @Post('onboard-company')
+  @HttpCode(201)
+  onboardCompany(
+    @Req() req: { user: JwtUser },
+    @Body() dto: OnboardCompanyDto,
+  ) {
+    this.assertAdmin(req);
+    return this.adminService.onboardCompany(dto);
+  }
+
+  // ─── Contrats & SaaS ───────────────────────────────────────────────────────
+
+  @Get('saas-pricing')
+  getSaasPricing(@Req() req: { user: JwtUser }) {
+    this.assertAdmin(req);
+    return {
+      plans: AdminService.SAAS_PRICING,
+      dossierFeeCentimes: AdminService.DOSSIER_FEE,
+    };
+  }
+
+  @Patch('companies/:id/plan')
+  updateCompanyPlan(
+    @Req() req: { user: JwtUser },
+    @Param('id') id: string,
+    @Body('plan') plan: SaaSPlan,
+  ) {
+    this.assertAdmin(req);
+    return this.adminService.updateCompanyPlan(id, plan);
+  }
+
+  @Post('companies/:id/saas-charge')
+  @HttpCode(200)
+  chargeSaasFee(
+    @Req() req: { user: JwtUser },
+    @Param('id') id: string,
+    @Body('feeType') feeType: 'MONTHLY' | 'DOSSIER',
+  ) {
+    this.assertAdmin(req);
+    return this.adminService.chargeSaasFee(id, feeType);
+  }
+
   // ─── Comptabilité ──────────────────────────────────────────────────────────
 
   @Get('ledger')
@@ -104,6 +158,15 @@ export class AdminController {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send('\uFEFF' + csv); // BOM UTF-8 pour Excel
+  }
+
+  // ─── QR codes ──────────────────────────────────────────────────────────────
+
+  @Post('vouchers/regenerate-qr')
+  @HttpCode(200)
+  regenerateAllQrCodes(@Req() req: { user: JwtUser }) {
+    this.assertAdmin(req);
+    return this.adminService.regenerateAllQrCodes();
   }
 
   // ─── Webhooks ──────────────────────────────────────────────────────────────

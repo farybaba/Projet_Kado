@@ -27,12 +27,21 @@ export class PaymentsController {
     try {
       // Vérification HMAC AVANT tout parsing JSON
       this.paymentsService.verifyWaveWebhook(rawBody, signature);
-      await this.paymentsService.logWebhook({
+
+      // Parsing sécurisé du body — la signature est déjà vérifiée
+      const body = JSON.parse(rawBodyStr) as Record<string, unknown>;
+
+      const webhookLog = await this.paymentsService.logWebhook({
         provider: WebhookProvider.WAVE,
         rawBody: rawBodyStr,
         status: 'RECEIVED',
       });
-      // TODO: router l'événement (payment.completed → emeConfirmedAt)
+
+      // Traitement asynchrone non-bloquant — on retourne { received: true } immédiatement
+      this.paymentsService
+        .processWaveWebhook(webhookLog.id, body)
+        .catch(() => undefined);
+
       return { received: true };
     } catch (err: unknown) {
       await this.paymentsService.logWebhook({
@@ -56,12 +65,20 @@ export class PaymentsController {
 
     try {
       this.paymentsService.verifyOmWebhook(rawBody, signature);
-      await this.paymentsService.logWebhook({
+
+      const body = JSON.parse(rawBodyStr) as Record<string, unknown>;
+
+      const webhookLog = await this.paymentsService.logWebhook({
         provider: WebhookProvider.ORANGE_MONEY,
         rawBody: rawBodyStr,
         status: 'RECEIVED',
       });
-      // TODO: router l'événement
+
+      // Traitement asynchrone non-bloquant
+      this.paymentsService
+        .processOrangeMoneyWebhook(webhookLog.id, body)
+        .catch(() => undefined);
+
       return { received: true };
     } catch (err: unknown) {
       await this.paymentsService.logWebhook({
