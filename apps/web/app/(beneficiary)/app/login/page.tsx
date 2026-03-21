@@ -168,8 +168,9 @@ export default function LoginPage() {
             setOtpError('Code incorrect ou expiré. Réessayez.');
           }
           setOtp(['', '', '', '', '', '']);
-          setTimeout(() => otpRefs.current[0]?.focus(), 50);
-          return;
+          setTimeout(() => {
+          router.replace('/app/wallet');
+          }, 150);
         }
 
         console.log('[OTP verify] data reçu:', JSON.stringify(data));
@@ -179,9 +180,9 @@ export default function LoginPage() {
           return;
         }
         localStorage.setItem('access_token', data.accessToken);
+        localStorage.setItem('token', data.accessToken); 
+        localStorage.setItem('auth_token', data.accessToken);
         localStorage.setItem('refresh_token', data.refreshToken);
-        console.log('[OTP verify] tokens sauvegardés, redirection wallet...');
-
         router.replace('/app/wallet');
       } catch (err) {
         console.error('[OTP verify] Erreur réseau:', err);
