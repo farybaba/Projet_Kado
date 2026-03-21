@@ -4,21 +4,14 @@ const nextConfig: NextConfig = {
   // Service Worker PWA — stratégies de cache selon CLAUDE.md
   // next-pwa est configuré séparément via withPWA
   experimental: {
-    serverActions: { allowedOrigins: ['localhost:3000'] },
-  },
-  async headers() {
-    return [
-      {
-        source: '/:path*',
-        headers: [{ key: 'ngrok-skip-browser-warning', value: 'true' }],
-      },
-    ];
+    serverActions: { allowedOrigins: ['localhost:3000', 'kado-gamma.vercel.app'] },
   },
   async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
     return [
       {
-        source: '/api-proxy/:path*',
-        destination: 'http://localhost:3001/api/v1/:path*',
+        source: '/api/v1/:path*',
+        destination: `${apiUrl}/api/v1/:path*`,
       },
     ];
   },

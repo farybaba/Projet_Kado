@@ -45,12 +45,20 @@ export class OtpService {
     const otpKey = `otp:${phone}`;
     const triesKey = `otp_tries:${phone}`;
 
-    await Promise.all([
-      this.redis.setex(otpKey, OTP_TTL_SECONDS, code),
-      ...(!this.isDev ? [this.redis.incrWithExpire(triesKey, OTP_RATE_WINDOW_SECONDS)] : []),
-    ]);
+    try {
+      await Promise.all([
+        this.redis.setex(otpKey, OTP_TTL_SECONDS, code),
+        ...(!this.isDev ? [this.redis.incrWithExpire(triesKey, OTP_RATE_WINDOW_SECONDS)] : []),
+      ]);
+    } catch (err) {
+      console.error('[OTP] Redis indisponible — OTP non stocké:', err);
+      throw new HttpException(
+        'Service temporairement indisponible. Réessayez dans quelques secondes.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
 
-    // TODO: envoyer via NotificationsModule (Nexah SMS)
+    // En production, envoyer via Nexah SMS. En dev : log console.
     console.log(`[OTP] ${phone} → ${code}`);
   }
 
