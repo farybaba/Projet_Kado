@@ -167,35 +167,33 @@ export default function LoginPage() {
           } else {
             setOtpError('Code incorrect ou expiré. Réessayez.');
           }
-          
-
-        console.log('[OTP verify] data reçu:', JSON.stringify(data));
-        if (!data.accessToken) {
-          setOtpError('Réponse invalide du serveur. Réessayez.');
-          console.error('[OTP verify] accessToken manquant dans:', data);
+          setOtp(['', '', '', '', '', '']);
+          setTimeout(() => otpRefs.current[0]?.focus(), 50);
           return;
         }
-        // --- NOUVEAU BLOC BLINDÉ (TOKENS + COOKIES) ---
 
-        // 1. Stockage Local (pour le navigateur)
+        if (!data.accessToken) {
+          setOtpError('Réponse invalide du serveur. Réessayez.');
+          return;
+        }
+
+        // Stockage tokens
         localStorage.setItem('access_token', data.accessToken);
-        localStorage.setItem('token', data.accessToken);
         localStorage.setItem('refresh_token', data.refreshToken);
 
-        // 2. Injection des Cookies (pour le Middleware/Serveur)
-        // On crée des cookies valables 7 jours sur tout le site
-        const cookieOptions = "path=/; max-age=604800; SameSite=Lax";
-        document.cookie = `token=${data.accessToken}; ${cookieOptions}`;
-        document.cookie = `access_token=${data.accessToken}; ${cookieOptions}`;
-
-        console.log('[OTP verify] Cookies et Tokens injectés. Redirection...');
-
-        // 3. Délai de sécurité pour laisser le téléphone enregistrer
-        setTimeout(() => {
+        // Redirection selon le rôle retourné par l'API
+        const role: string = data.role ?? 'BENEFICIARY';
+        if (role === 'ADMIN') {
+          router.replace('/admin/dashboard');
+        } else if (role === 'MERCHANT') {
+          localStorage.setItem('merchant_token', data.accessToken);
+          if (data.merchantId) localStorage.setItem('merchant_id', data.merchantId);
+          router.replace('/pos/scan');
+        } else if (role === 'COMPANY_ADMIN' || role === 'COMPANY_VIEWER') {
+          router.replace('/dashboard');
+        } else {
           router.replace('/app/wallet');
-        }, 300);
-
-        // --- FIN DU BLOC ---
+        }
       } catch (err) {
         console.error('[OTP verify] Erreur réseau:', err);
         setOtpError('Erreur réseau. Vérifiez votre connexion.');
