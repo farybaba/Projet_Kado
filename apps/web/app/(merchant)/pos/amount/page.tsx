@@ -11,8 +11,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 interface PosQr {
-  code: string;
-  sig: string;
+  qrData: string;
   remainingValue: number;
   nominalValue: number;
   type: string;

@@ -80,6 +80,11 @@ export class VouchersService {
     amountCentimes: number,
     merchantId: string,
   ): Promise<{ success: boolean; remainingValue: number }> {
+    // DEBUG — à supprimer après diagnostic
+    console.log('[VALIDATE DEBUG] rawQrData type:', typeof rawQrData, 'length:', rawQrData?.length ?? 'N/A');
+    console.log('[VALIDATE DEBUG] rawQrData start:', String(rawQrData).slice(0, 80));
+    console.log('[VALIDATE DEBUG] amountCentimes:', amountCentimes, 'merchantId:', merchantId?.slice(0, 8));
+
     // Extraire code et signature depuis le contenu brut du QR
     const { code: voucherCode, sig: qrSignature } = this.parseQrContent(rawQrData);
     const transactionResult = await this.prisma.$transaction(
