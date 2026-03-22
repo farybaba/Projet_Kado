@@ -4,6 +4,7 @@ import {
   ConflictException,
   BadRequestException,
   Optional,
+  Logger,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { ConfigService } from '@nestjs/config';
@@ -14,6 +15,8 @@ import type { Voucher, VoucherStatus } from '@prisma/client';
 
 @Injectable()
 export class VouchersService {
+  private readonly logger = new Logger(VouchersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledger: LedgerService,
@@ -81,9 +84,8 @@ export class VouchersService {
     merchantId: string,
   ): Promise<{ success: boolean; remainingValue: number }> {
     // DEBUG — à supprimer après diagnostic
-    console.log('[VALIDATE DEBUG] rawQrData type:', typeof rawQrData, 'length:', rawQrData?.length ?? 'N/A');
-    console.log('[VALIDATE DEBUG] rawQrData start:', String(rawQrData).slice(0, 80));
-    console.log('[VALIDATE DEBUG] amountCentimes:', amountCentimes, 'merchantId:', merchantId?.slice(0, 8));
+    this.logger.log(`[VALIDATE] rawQrData type=${typeof rawQrData} len=${rawQrData?.length ?? 'undef'} amount=${amountCentimes} merchant=${merchantId?.slice(0, 8)}`);
+    this.logger.log(`[VALIDATE] qrStart=${String(rawQrData).slice(0, 60)}`);
 
     // Extraire code et signature depuis le contenu brut du QR
     const { code: voucherCode, sig: qrSignature } = this.parseQrContent(rawQrData);
@@ -196,6 +198,7 @@ export class VouchersService {
     expiresAt: Date;
     beneficiaryFirstName: string | null;
   }> {
+    this.logger.log(`[LOOKUP] rawQrData type=${typeof rawQrData} len=${rawQrData?.length ?? 'undef'}`);
     const { code, sig: qrSignature } = this.parseQrContent(rawQrData);
     // Vérification HMAC directement sur le contenu brut du QR scanné
     this.verifyQrSignature(rawQrData, qrSignature);
@@ -273,11 +276,9 @@ export class VouchersService {
       crypto.timingSafeEqual(expectedBuf, receivedBuf);
 
     // DEBUG temporaire — à supprimer après diagnostic
-    console.log('[QR DEBUG] secret_prefix:', secret.slice(0, 8));
-    console.log('[QR DEBUG] innerPayload:', innerPayload.slice(0, 80));
-    console.log('[QR DEBUG] expected:', expected.slice(0, 16), '...');
-    console.log('[QR DEBUG] received:', signature.slice(0, 16), '...');
-    console.log('[QR DEBUG] match:', match);
+    this.logger.log(`[HMAC] secret_prefix=${secret.slice(0, 8)} match=${match}`);
+    this.logger.log(`[HMAC] payload=${innerPayload.slice(0, 80)}`);
+    this.logger.log(`[HMAC] expected=${expected.slice(0, 16)}... received=${signature.slice(0, 16)}...`);
 
     if (!match) {
       throw new BadRequestException({ code: 'QR_INVALID', message: 'Signature QR incorrecte' });
